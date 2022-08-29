@@ -1,10 +1,11 @@
+
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-import  org.jsoup.select.*;
+import org.jsoup.select.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -15,10 +16,22 @@ import java.util.HashMap;
 public class mainParser {
     public static String city = "краснодар";
     public static String modelName = "elantra";
-    public static String carCmp = "";
+    public static String carConfig = "";
+    public static String filePath = "data/htmlCities";
 //    public static String showroomPage = "https://showroom.hyundai.ru/?utm_medium=referral&utm_source=hyundai.ru&utm_campaign=main_menu";
 
     public static void main(String[] args) {
+        if(args.length>0) {
+            for(int i=0;i<args.length;i++) {
+                if(i<args.length-1) {
+                    if (args[i].toLowerCase().contains("-city")) city = args[i+1].toLowerCase();
+                    if (args[i].toLowerCase().contains("-modelname")) modelName = args[i+1].toLowerCase();
+                    if (args[i].toLowerCase().contains("-carconfig")) carConfig = args[i+1].toLowerCase();
+                    if (args[i].toLowerCase().contains("-filepath")) filePath = args[i+1].toLowerCase();
+                }
+            }
+        }
+
         long timer=System.currentTimeMillis();
 
         getURLDealers().forEach( dealer ->{
@@ -27,11 +40,11 @@ public class mainParser {
             System.out.print(parsePage(getModelsLinks(dealerMap.get("lego_car_link"))));
         });
 
-        System.out.println((System.currentTimeMillis()-timer)+"millis");
+        System.out.println("script comleted in "+(System.currentTimeMillis()-timer)+" millis");
 
     }
 
-
+// получаем ссылки на страницы с моделями автомобилей
     public static ArrayList getModelsLinks(String htmlPath) {
         ArrayList<String> links = new ArrayList<>();
         String fullPath = (htmlPath + "/cars/").replaceAll("(//cars/)", "/cars/");
@@ -51,7 +64,7 @@ public class mainParser {
         return links;
     }
 
-
+    // Парсинг страницы с доступными к попкпке автомобилей
     public static String parsePage(ArrayList links) {
         StringBuilder builder = new StringBuilder();
         links.forEach(link -> {
@@ -66,8 +79,9 @@ public class mainParser {
                     dealer = allHTMLData.select("div.h__name").get(0).text();
                 }
                 cars.forEach(element -> {
-                    if (element.select("a.cr__i-cmp").get(0).text().toLowerCase().contains(carCmp.toLowerCase())) {
+                    if (element.select("a.cr__i-cmp").get(0).text().toLowerCase().contains(carConfig.toLowerCase())) {
                         builder.append(dealer + " - " + element.select("a.cr__i-name").get(0).text() + " - ");
+                        builder.append(element.select("div.cr__i-ch__bl").get(0).text() + " - ");
                         builder.append(element.select("a.cr__i-cmp").get(0).text() + " - ");
                         if (!element.select("div.cr__i-sm__oldvalue").isEmpty()) {
                             builder.append(element.select("div.cr__i-sm__oldvalue").get(0).text() + "\n");
@@ -86,9 +100,9 @@ public class mainParser {
     }
 
 
-    // Получает ссылки на шоурумы всех дилеров
+    // Получает ссылки на шоурумы всех дилеров из файла
     public static ArrayList getURLDealers () {
-        File citiesFile = new File("data/htmlCities");
+        File citiesFile = new File(filePath);
         ArrayList<HashMap> urlList = new ArrayList<>();
         try {
               Document data = Jsoup.parse(citiesFile);
