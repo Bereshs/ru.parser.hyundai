@@ -1,4 +1,4 @@
-<big><b>ru.parser.hyundai</b></big> версия 1.02<br> 
+<big><b>ru.parser.hyundai</b></big> версия 1.03<br> 
  
 Парсинг автомобилей у дилеров hyundai<br><br> 
 
