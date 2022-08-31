@@ -7,8 +7,7 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.*;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -16,32 +15,72 @@ import java.util.HashMap;
 public class mainParser {
     public static String city = "краснодар";
     public static String modelName = "elantra";
-    public static String carConfig = "";
-    public static String filePath = "data/htmlCities";
-//    public static String showroomPage = "https://showroom.hyundai.ru/?utm_medium=referral&utm_source=hyundai.ru&utm_campaign=main_menu";
+    public static String carConfig = "prestige";
+    public static String citiesfilePath = "data/htmlCities";
+
+    public static String outputFile = "data/parsing.json";
 
     public static void main(String[] args) {
+        long timer=System.currentTimeMillis();
+        JSONObject dealerList = new JSONObject();
+        JSONObject oldDealerList = new JSONObject();
+        ArrayList<Dealer> dealerListForPrint =  new ArrayList<>();
+
         if(args.length>0) {
             for(int i=0;i<args.length;i++) {
                 if(i<args.length-1) {
                     if (args[i].toLowerCase().contains("-city")) city = args[i+1].toLowerCase();
                     if (args[i].toLowerCase().contains("-modelname")) modelName = args[i+1].toLowerCase();
                     if (args[i].toLowerCase().contains("-carconfig")) carConfig = args[i+1].toLowerCase();
-                    if (args[i].toLowerCase().contains("-filepath")) filePath = args[i+1].toLowerCase();
+                    if (args[i].toLowerCase().contains("-filecitiespath")) citiesfilePath = args[i+1].toLowerCase();
+                    if (args[i].toLowerCase().contains("-fileoutputpath")) outputFile = args[i+1].toLowerCase();
                 }
             }
         }
 
-        long timer=System.currentTimeMillis();
+        JSONParser parser = new JSONParser();
+        JSONObject jsonObject = new JSONObject();
+
+        try (Reader reader = new FileReader(outputFile)) {
+            jsonObject = (JSONObject) parser.parse(reader);
+        } catch (FileNotFoundException e) {
+            System.out.println("Data file not found "+outputFile);
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+
+        jsonObject.forEach((name, data)-> {
+            oldDealerList.put(name, data);
+        });
 
         getURLDealers().forEach( dealer ->{
             HashMap<String, String> dealerMap;
             dealerMap = (HashMap<String, String>) dealer;
-            System.out.print(parsePage(getModelsLinks(dealerMap.get("lego_car_link"))));
+            Dealer dealerData= new Dealer();
+            dealerData = parsePage(getModelsLinks(dealerMap.get("lego_car_link")));
+            if (dealerData.getCount()>0) {
+                dealerList.put(dealerData.getName(), dealerData.toJson().toString());
+                dealerListForPrint.add(dealerData);
+            }
         });
 
-        System.out.println("script comleted in "+(System.currentTimeMillis()-timer)+" millis");
+        if(oldDealerList.toString().length()>1 && !dealerList.equals(oldDealerList)) {
+            System.out.println("Найдены изменения:");
+            dealerListForPrint.forEach(dealer -> {
+                System.out.println(dealer.toString());
+            });
+            try (FileWriter file = new FileWriter(outputFile)) {
+                file.write(dealerList.toString());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }else {
+            System.out.println("Изменения не найдены");
+        }
 
+        System.out.println("Script comleted for "+(System.currentTimeMillis()-timer)+" ms");
     }
 
 // получаем ссылки на страницы с моделями автомобилей
@@ -65,11 +104,10 @@ public class mainParser {
     }
 
     // Парсинг страницы с доступными к попкпке автомобилей
-    public static String parsePage(ArrayList links) {
-        StringBuilder builder = new StringBuilder();
+    public static Dealer parsePage(ArrayList links) {
+        Dealer newDealer = new Dealer();
         links.forEach(link -> {
             try {
-   //             System.out.println(link);
                 Document allHTMLData = Jsoup.connect(link.toString()).ignoreContentType(true).get();
                 Elements cars = allHTMLData.select("div.cr__i--fl");
                 String dealer;
@@ -78,17 +116,21 @@ public class mainParser {
                 } else {
                     dealer = allHTMLData.select("div.h__name").get(0).text();
                 }
+                newDealer.setName(dealer);
                 cars.forEach(element -> {
                     if (element.select("a.cr__i-cmp").get(0).text().toLowerCase().contains(carConfig.toLowerCase())) {
-                        builder.append(dealer + " - " + element.select("a.cr__i-name").get(0).text() + " - ");
-                        builder.append(element.select("div.cr__i-ch__bl").get(0).text() + " - ");
-                        builder.append(element.select("a.cr__i-cmp").get(0).text() + " - ");
+                        String carPrice;
                         if (!element.select("div.cr__i-sm__oldvalue").isEmpty()) {
-                            builder.append(element.select("div.cr__i-sm__oldvalue").get(0).text() + "\n");
+                            carPrice = element.select("div.cr__i-sm__oldvalue").get(0).text();
                         } else {
-                            builder.append(element.select("div.cr__i-sm__value").get(0).text() + "\n");
+                            carPrice = element.select("div.cr__i-sm__value").get(0).text();
                         }
-
+                        Car newCar = new Car(element.select("a.cr__i-name").get(0).text(),
+                                element.select("div.cr__i-ch__bl").get(0).text().replaceAll("\\s*(Цвет кузова:)\\s*", ""),
+                                element.select("a.cr__i-cmp").get(0).text(),
+                                carPrice);
+    //                    System.out.println(newCar);
+                        newDealer.add(newCar);
                     }
                 });
             } catch (IOException e) {
@@ -96,13 +138,13 @@ public class mainParser {
             }
         });
 
-        return builder.toString();
+        return newDealer;
     }
 
 
     // Получает ссылки на шоурумы всех дилеров из файла
     public static ArrayList getURLDealers () {
-        File citiesFile = new File(filePath);
+        File citiesFile = new File(citiesfilePath);
         ArrayList<HashMap> urlList = new ArrayList<>();
         try {
               Document data = Jsoup.parse(citiesFile);
