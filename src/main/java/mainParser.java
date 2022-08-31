@@ -8,6 +8,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.select.*;
 
 import java.io.*;
+import java.net.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -20,7 +21,9 @@ public class mainParser {
 
     public static String outputFile = "data/parsing.json";
 
-    public static void main(String[] args) {
+    public static String smsPhone = "";
+    public static String smsKey="";
+    public static void main(String[] args) throws IOException {
         long timer=System.currentTimeMillis();
         JSONObject dealerList = new JSONObject();
         JSONObject oldDealerList = new JSONObject();
@@ -34,6 +37,8 @@ public class mainParser {
                     if (args[i].toLowerCase().contains("-carconfig")) carConfig = args[i+1].toLowerCase();
                     if (args[i].toLowerCase().contains("-filecitiespath")) citiesfilePath = args[i+1].toLowerCase();
                     if (args[i].toLowerCase().contains("-fileoutputpath")) outputFile = args[i+1].toLowerCase();
+                    if (args[i].toLowerCase().contains("-smskey")) smsKey = args[i+1].toLowerCase();
+                    if (args[i].toLowerCase().contains("-smsphone")) smsPhone = args[i+1].toLowerCase();
                 }
             }
         }
@@ -68,9 +73,20 @@ public class mainParser {
 
         if(oldDealerList.toString().length()>1 && !dealerList.equals(oldDealerList)) {
             System.out.println("Найдены изменения:");
+            StringBuilder smsMessage =  new StringBuilder();
+            smsMessage.append("Новые авто: \n");
             dealerListForPrint.forEach(dealer -> {
+                smsMessage.append(dealer.getName()).append("\n");
                 System.out.println(dealer.toString());
             });
+            if(smsKey.length()>=36 && smsPhone.length()>=11) {
+                URL url = new URL("https://sms.ru/sms/send?api_id="+smsKey+"&to="+smsPhone+"&msg="+ URLEncoder.encode(smsMessage.toString()));
+                HttpURLConnection con = (HttpURLConnection) url.openConnection();
+                con.setRequestMethod("GET");
+                con.setRequestProperty("accept", "application/json");
+                InputStream responseStream = con.getInputStream();
+            }
+
             try (FileWriter file = new FileWriter(outputFile)) {
                 file.write(dealerList.toString());
             } catch (IOException e) {

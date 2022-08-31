@@ -33,7 +33,7 @@ public class Dealer {
     public String toString() {
         StringBuilder dealerString = new StringBuilder();
         if (this.count > 0) {
-            dealerString.append(name).append("(").append(count).append(")").append(" - ").append(this.totalPrice).append(" ₽").append("\n");
+            dealerString.append(name).append("(").append(count).append(")").append("\n");
             carList.forEach(car -> {
                 dealerString.append(car);
             });
