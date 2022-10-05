@@ -1,5 +1,6 @@
 import org.json.simple.JSONObject;
 
+import java.io.IOException;
 import java.util.ArrayList;
 
 public class Dealer {
@@ -59,5 +60,18 @@ public class Dealer {
         dealerJson.put("code", this.hashCode());
         dealerJson.put("name", this.name);
         return dealerJson;
+    }
+    public void addCars(ArrayList links) {
+        links.forEach(link -> {
+            try {
+                CarPage carPage = new CarPage(link.toString());
+                this.setName(carPage.getDealerName());
+                carPage.getDealerCars(mainParser.carConfig).forEach(element ->{
+                    this.add(element);
+                });
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
     }
 }
